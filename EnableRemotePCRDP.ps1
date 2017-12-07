@@ -20,8 +20,8 @@ function RemoteRDPHandler($RemoteComputer, $EnableOrDisable){
      
      if ($EnableOrDisable -eq 0)
         {
-
-         Invoke-Command –Computername $RemoteComputer {
+        Try {
+         Invoke-Command –Computername $RemoteComputer -ErrorAction Stop {
     
             # Enables RDP on remote ps (value 1 to disable, 0 to enable)	
             Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
@@ -30,10 +30,16 @@ function RemoteRDPHandler($RemoteComputer, $EnableOrDisable){
 
             } 
               Write-Host "Enabled RDP $RemoteComputer `n" -ForegroundColor Green
+              }
+              Catch {
+                    # this will run if an error occurs
+                    Write-Host "?! an ERROR occured while trying to remote (try running powershell as admin or enable-psremoting on the computer.) `n" -ForegroundColor Red -BackgroundColor DarkBlue
+                }
     
          }
         else{
-        Invoke-Command –Computername $RemoteComputer {
+        Try {
+        Invoke-Command –Computername $RemoteComputer  -ErrorAction Stop{
             # Enables RDP on remote ps (value 1 to disable, 0 to enable)	
             Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 1
             # Disable RDP traffic firewall rule	
@@ -43,6 +49,11 @@ function RemoteRDPHandler($RemoteComputer, $EnableOrDisable){
 
             
             Write-Host "Disabled RDP $RemoteComputer `n" -ForegroundColor Red
+            }
+            Catch {
+                    # this will run if an error occurs
+                    Write-Host " ?! an ERROR occured while trying to remote (try running powershell as admin or enable-psremoting on the remote computer.) `n" -ForegroundColor Red -BackgroundColor DarkBlue
+                }
         }
 
 }
