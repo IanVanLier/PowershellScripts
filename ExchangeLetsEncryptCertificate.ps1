@@ -36,7 +36,7 @@ Set-WebConfiguration system.webServer/security/authentication/anonymousAuthentic
 
 #Create subdirectory to store new certificate
 $CertifacateDirectory =  $CertifacateDirectory + "\" +$((Get-Date).ToString('yyyy-MM-dd'))
-New-Item -ItemType Directory -Path $CertifacateDirectory
+New-Item -ItemType Directory -Path $CertifacateDirectory -Force
 write-host "Created directory: " $CertifacateDirectory -foregroundcolor "Yellow"
 
 
@@ -44,6 +44,8 @@ cd $LetsEncryptLocation
 .\LetsEncrypt.exe --verbose --notaskscheduler --centralsslstore $CertifacateDirectory --webroot $IISRootDirectory --plugin manual --manualhost $WebAddress [--validationmode http-01] --validation selfhosting --emailaddress $EmailAddress --accepttos --forcerenewal --installation none
 
 Start-Sleep -s 20
+$ScheduledTaskName = "Renew Exchange LetsEncrypt Certificate"
+Unregister-ScheduledTask -TaskName $ScheduledTaskName -Confirm:$false
 
 if(Test-Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")){
     
@@ -52,18 +54,16 @@ if(Test-Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")){
     Enable-ExchangeCertificate -Thumbprint $ThumbPrint -Services $ServicesToEnAble
 
     #Create scheduled task for the next renewal.
-    $NextRenewJob = New-ScheduledTaskAction -Execute Powershell.exe -argument "-ExecutionPolicy Bypass c:\scripts\myscript.ps1 -RunType $true -Path $ScriptLocation"
+    $NextRenewJob = New-ScheduledTaskAction -Execute Powershell.exe -Command $ScriptLocation
     $NextRenewTime = New-ScheduledTaskTrigger -Once -At ((get-date).AddDays($RenewalTime))
 
-    Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName "Renew Exchange LetsEncrypt Certificate" -Description "Job to renew the exchange certificate automatically." 
+    Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName $ScheduledTaskName -Description "Job to renew the exchange certificate automatically." 
 }
 
 #Retry the script tomorrow if there is no certificate generated.
 else{    
-    $NextRenewJob = New-ScheduledTaskAction -Execute Powershell.exe -argument "-ExecutionPolicy Bypass c:\scripts\myscript.ps1 -RunType $true -Path $ScriptLocation"
+    $NextRenewJob = New-ScheduledTaskAction -Execute Powershell.exe -Command $ScriptLocation
     $NextRenewTime = New-ScheduledTaskTrigger -Once -At ((get-date).AddDays(1))
 
-    Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName "Renew Exchange LetsEncrypt Certificate" -Description "Job to renew the exchange certificate automatically." 
+    Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName $ScheduledTaskName -Description "Job to renew the exchange certificate automatically." 
 }
-
-
