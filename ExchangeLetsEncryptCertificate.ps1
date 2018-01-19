@@ -16,6 +16,7 @@ $IISRootDirectory = "C:\inetpub\wwwroot"
 $EmailAddress = "test@example.com"
 $ScriptLocation = "C:\LetsEncrypt\ExchangeLetsEncryptCertificate.ps1"
 $RenewalTime = 70
+$ScheduledTaskName = "Renew Exchange LetsEncrypt Certificate"
 # possible parameters: None | IMAP | POP | UM | IIS | SMTP | Federation | UMCallRouter seperate with comma for multiple services.
 $ServicesToEnAble = "IIS"
 
@@ -43,26 +44,25 @@ write-host "Created directory: " $CertifacateDirectory -foregroundcolor "Yellow"
 cd $LetsEncryptLocation 
 .\LetsEncrypt.exe --verbose --notaskscheduler --centralsslstore $CertifacateDirectory --webroot $IISRootDirectory --plugin manual --manualhost $WebAddress [--validationmode http-01] --validation selfhosting --emailaddress $EmailAddress --accepttos --forcerenewal --installation none
 
-Start-Sleep -s 20
-$ScheduledTaskName = "Renew Exchange LetsEncrypt Certificate"
-Unregister-ScheduledTask -TaskName $ScheduledTaskName -Confirm:$false
-$NextRenewJob = New-ScheduledTaskAction -Execute 'Powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -command $ScriptLocation"
+
+Start-Sleep -s 5
+$ExistingTask = Get-ScheduledTask | Where-Object {$_.TaskName -like $ScheduledTaskName}
+if (!($ExistingTask)){
+    $credential = $Host.UI.PromptForCredential("Task username and password",$msg,"$env:userdomain\$env:username",$env:userdomain)
+    $username = $credential.UserName
+    $password = $credential.GetNetworkCredential().Password
+
+    #Create scheduled task for the next renewal.
+    $NextRenewJob = New-ScheduledTaskAction -Execute 'Powershell.exe' -Argument "-command $ScriptLocation"
+    $NextRenewTime = New-ScheduledTaskTrigger -Daily -DaysInterval $RenewalTime  -At ((get-date).AddDays($RenewalTime))
+
+    Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName $ScheduledTaskName -Description "Job to renew the exchange certificate automatically." -RunLevel Highest -User $username -Password $password
+}
 
 if(Test-Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")){
     
-#Store thumbPrint of imported certificate.
+    #Store thumbPrint of imported certificate.
     $ThumbPrint = (Import-ExchangeCertificate -FileData ([Byte[]]$(Get-Content -Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")  -Encoding byte -ReadCount 0)) -Password ($mypwd)).thumbprint
-    Enable-ExchangeCertificate -Thumbprint $ThumbPrint -Services $ServicesToEnAble
+    Enable-ExchangeCertificate -Thumbprint $ThumbPrint -Services "IIS"
 
-    #Create scheduled task for the next renewal.	
-    $NextRenewTime = New-ScheduledTaskTrigger -Once -At ((get-date).AddDays($RenewalTime))
-
-    Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName $ScheduledTaskName -Description "Job to renew the exchange certificate automatically." 
-}
-
-#Retry the script tomorrow if there is no certificate generated.
-else{        
-    $NextRenewTime = New-ScheduledTaskTrigger -Once -At ((get-date).AddDays(1))
-
-    Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName $ScheduledTaskName -Description "Job to renew the exchange certificate automatically." 
 }
