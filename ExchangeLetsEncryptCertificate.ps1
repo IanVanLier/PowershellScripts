@@ -46,6 +46,7 @@ cd $LetsEncryptLocation
 Start-Sleep -s 20
 $ScheduledTaskName = "Renew Exchange LetsEncrypt Certificate"
 Unregister-ScheduledTask -TaskName $ScheduledTaskName -Confirm:$false
+$NextRenewJob = New-ScheduledTaskAction -Execute 'Powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -command $ScriptLocation"
 
 if(Test-Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")){
     
@@ -53,16 +54,14 @@ if(Test-Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")){
     $ThumbPrint = (Import-ExchangeCertificate -FileData ([Byte[]]$(Get-Content -Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")  -Encoding byte -ReadCount 0)) -Password ($mypwd)).thumbprint
     Enable-ExchangeCertificate -Thumbprint $ThumbPrint -Services $ServicesToEnAble
 
-    #Create scheduled task for the next renewal.
-    $NextRenewJob = New-ScheduledTaskAction -Execute Powershell.exe -Command $ScriptLocation
+    #Create scheduled task for the next renewal.	
     $NextRenewTime = New-ScheduledTaskTrigger -Once -At ((get-date).AddDays($RenewalTime))
 
     Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName $ScheduledTaskName -Description "Job to renew the exchange certificate automatically." 
 }
 
 #Retry the script tomorrow if there is no certificate generated.
-else{    
-    $NextRenewJob = New-ScheduledTaskAction -Execute Powershell.exe -Command $ScriptLocation
+else{        
     $NextRenewTime = New-ScheduledTaskTrigger -Once -At ((get-date).AddDays(1))
 
     Register-ScheduledTask -Action $NextRenewJob -Trigger $NextRenewTime -TaskName $ScheduledTaskName -Description "Job to renew the exchange certificate automatically." 
