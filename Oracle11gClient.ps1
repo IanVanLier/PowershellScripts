@@ -1,0 +1,1 @@
+﻿ .\setup.exe ORACLE_BASE=c:\oracle ORACLE_HOME=c:\oracle\11.2.0\client ORACLE_HOME_NAME=CLIENT INSTALL_TYPE=Runtime -silent -nowait

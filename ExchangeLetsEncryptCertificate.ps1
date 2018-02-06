@@ -7,6 +7,7 @@ Add-PSsnapin *Exchange* -ErrorAction SilentlyContinue
 #Be sure to correctly set variables below.
 #Get Url For External site.
 $WebAddress = (Get-OWAVirtualDirectory).ExternalUrl.Host
+$SanAddresses =""
 
 #Be sure to change password in letsencrypt.exe.config
 $mypwd = ConvertTo-SecureString -String "SamplePassword" -Force -AsPlainText
@@ -42,7 +43,7 @@ write-host "Created directory: " $CertifacateDirectory -foregroundcolor "Yellow"
 
 
 cd $LetsEncryptLocation 
-.\LetsEncrypt.exe --verbose --notaskscheduler --centralsslstore $CertifacateDirectory --webroot $IISRootDirectory --plugin manual --manualhost $WebAddress [--validationmode http-01] --validation selfhosting --emailaddress $EmailAddress --accepttos --forcerenewal --installation none
+.\LetsEncrypt.exe --verbose --notaskscheduler --centralsslstore $CertifacateDirectory --webroot $IISRootDirectory --plugin manual --manualhost $SanAddresses [--validationmode http-01] --validation selfhosting --emailaddress $EmailAddress --accepttos --forcerenewal --installation none
 
 
 Start-Sleep -s 5
@@ -63,6 +64,6 @@ if(Test-Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")){
     
     #Store thumbPrint of imported certificate.
     $ThumbPrint = (Import-ExchangeCertificate -FileData ([Byte[]]$(Get-Content -Path ($CertifacateDirectory + "\" + $WebAddress + ".pfx")  -Encoding byte -ReadCount 0)) -Password ($mypwd)).thumbprint
-    Enable-ExchangeCertificate -Thumbprint $ThumbPrint -Services "IIS"
+    Enable-ExchangeCertificate -Thumbprint $ThumbPrint -Services $ServicesToEnAble
 
 }
